@@ -2,7 +2,7 @@
   <div v-if="props.gameOver" class="game-over">
     <div class="game-over-text">
       <h1>Game Over</h1>
-      <h1>Press any key to restart</h1>
+      <h1>Press Enter/Return key to restart</h1>
     </div>
   </div>
 </template>

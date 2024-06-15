@@ -19,6 +19,8 @@ let level = ref(0)
 let life = ref(5)
 let gameOver = ref(false)
 
+let overlapCordinateX = new Set()
+
 const playerImage = new Image()
 const enemyImage = new Image()
 const asteroidImage = new Image()
@@ -103,34 +105,60 @@ function startGame() {
   let asteroids = []
   const particles = []
 
-  function getRandomInt(max) {
-    const randomNumber = Math.floor(Math.random() * max)
-    return randomNumber > 0 ? randomNumber : getRandomInt(max)
+  function getCordinateXY(max) {
+    const cordinateX = Math.floor(Math.random() * max) + 1
+    const cordinateY = 10
+
+    return { x: cordinateX, y: cordinateY }
   }
 
   function spawnEnemies() {
-    for (let i = 0; i <= level.value; i++)
-      enemies.push({
-        x: getRandomInt(10) * 60,
-        y: getRandomInt(10),
-        width: 50,
-        height: 50
-      })
+    if (gameOver.value) return
+    for (let i = 0; i <= level.value; i++) {
+      const { x, y } = getCordinateXY(770)
+      if (overlapCordinateX.has(x)) continue
+      overlapCordinateX.add(x)
+      setTimeout(() => {
+        enemies.push({
+          x,
+          y,
+          width: 50,
+          height: 50
+        })
+      }, 0)
+    }
   }
 
   function spawnAsteroids() {
-    for (let i = 0; i <= level.value; i++)
-      asteroids.push({
-        x: getRandomInt(10) * 60,
-        y: getRandomInt(10),
-        width: 50,
-        height: 50
-      })
+    if (gameOver.value) return
+    for (let i = 0; i <= level.value; i++) {
+      const { x, y } = getCordinateXY(770)
+      if (overlapCordinateX.has(x)) continue
+      overlapCordinateX.add(x)
+      setTimeout(() => {
+        asteroids.push({
+          x,
+          y,
+          width: 50,
+          height: 50
+        })
+      }, 0)
+    }
   }
-  setInterval(spawnEnemies, 2000)
-  setInterval(spawnAsteroids, 3000)
 
+  let counter = 0
+  let previousTime = new Date()
   function update() {
+    let currentTime = new Date()
+    if (counter > 2) counter = 0
+    counter++
+
+    if ((currentTime.getTime() - previousTime.getTime()) / 1000 > 2 / (1 / (1 + level.value) + 1)) {
+      previousTime = currentTime
+      if (counter % 2) spawnAsteroids()
+      else spawnEnemies()
+    }
+
     // Clear the canvas
     ctx.clearRect(0, 0, canvas.value.width, canvas.value.height)
 
@@ -181,6 +209,8 @@ function startGame() {
             }
             enemies.splice(enemyIndex, 1)
             bullets.splice(bulletIndex, 1)
+            overlapCordinateX.delete(enemy.x)
+
             score.value += 10
             level.value = score.value / 100
           }
@@ -207,7 +237,9 @@ function startGame() {
             }
             asteroids.splice(asteroidIndex, 1)
             bullets.splice(bulletIndex, 1)
-            score.value += 10
+            overlapCordinateX.delete(asteroids.x)
+
+            score.value += 5
             level.value = score.value / 100
           }
         })
@@ -218,6 +250,14 @@ function startGame() {
       if (enemy.y + enemy.height > player.y) {
         life.value -= 1
         enemies.splice(enemyIndex, 1)
+        overlapCordinateX.delete(enemy.x)
+      }
+    })
+    asteroids.forEach((asteroid, asteroidIndex) => {
+      if (asteroid.y + asteroid.height > player.y) {
+        life.value -= 1
+        asteroids.splice(asteroidIndex, 1)
+        overlapCordinateX.delete(asteroid.x)
       }
     })
 
@@ -230,19 +270,22 @@ function startGame() {
 
   function handleKeyDown(event) {
     keysPressed[event.key] = true
-    if (gameOver.value) {
-      gameOver.value = false
-      life.value = 5
-      startGame()
-      return
-    }
+    if (event.key === 'Enter')
+      if (gameOver.value) {
+        gameOver.value = false
+        life.value = 5
+        level.value = 0
+        score.value = 0
+        startGame()
+        return
+      }
     Object.keys(keysPressed).map((key) => {
       switch (key) {
         case 'ArrowLeft':
-          player.x = Math.max(0, player.x - 15)
+          player.x = Math.max(0, player.x - getPlayerVelocity())
           break
         case 'ArrowRight':
-          player.x = Math.min(canvas.value.width - player.width, player.x + 15)
+          player.x = Math.min(canvas.value.width - player.width, player.x + getPlayerVelocity())
           break
         case ' ':
           bullets.push(
@@ -261,7 +304,10 @@ function startGame() {
       }
     })
   }
-
+  function getPlayerVelocity() {
+    if (level.value + 15 > 40) return 40
+    return level.value + 15
+  }
   window.addEventListener('keydown', handleKeyDown)
   window.addEventListener('keyup', (event) => {
     delete keysPressed[event.key]
